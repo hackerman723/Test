@@ -1,0 +1,16 @@
+{
+  "name": "speech-to-text-webapp",
+  "version": "1.0.0",
+  "description": "Simple speech to text web application supporting US and Indian English recognition.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "keywords": [
+    "speech",
+    "speech-to-text",
+    "web"
+  ],
+  "author": "",
+  "license": "MIT"
+}
