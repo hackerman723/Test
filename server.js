@@ -1,74 +1,101 @@
-const http = require('http');
-const fs = require('fs');
+const express = require('express');
+const multer = require('multer');
 const path = require('path');
-const url = require('url');
 
 const PORT = process.env.PORT || 3000;
-const PUBLIC_DIR = path.join(__dirname, 'public');
+const HF_API_URL =
+  process.env.HF_API_URL || 'https://api-inference.huggingface.co/models/openai/whisper-large-v3';
+const HF_API_TOKEN = process.env.HF_API_TOKEN;
 
-const mimeTypes = {
-  '.html': 'text/html; charset=UTF-8',
-  '.css': 'text/css; charset=UTF-8',
-  '.js': 'application/javascript; charset=UTF-8',
-  '.json': 'application/json; charset=UTF-8',
-  '.ico': 'image/x-icon',
-  '.png': 'image/png',
-  '.jpg': 'image/jpeg',
-  '.svg': 'image/svg+xml',
-};
+const app = express();
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 30 * 1024 * 1024, // 30 MB
+  },
+});
 
-const sendResponse = (res, statusCode, data, contentType = 'text/plain; charset=UTF-8') => {
-  res.writeHead(statusCode, { 'Content-Type': contentType });
-  res.end(data);
-};
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  if (req.method === 'OPTIONS') {
+    res.sendStatus(204);
+    return;
+  }
+  next();
+});
 
-const serveStaticFile = (res, filePath) => {
-  const resolvedPath = path.join(PUBLIC_DIR, filePath);
+app.use(express.static(path.join(__dirname, 'public')));
 
-  if (!resolvedPath.startsWith(PUBLIC_DIR)) {
-    sendResponse(res, 403, 'Forbidden');
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok' });
+});
+
+app.post('/api/transcribe', upload.single('audio'), async (req, res) => {
+  if (!req.file) {
+    res.status(400).json({ error: 'No audio file received.' });
     return;
   }
 
-  fs.stat(resolvedPath, (err, stats) => {
-    if (err || !stats.isFile()) {
-      sendResponse(res, 404, 'Not found');
+  if (!HF_API_TOKEN) {
+    res.status(500).json({ error: 'Server misconfigured: missing HF_API_TOKEN.' });
+    return;
+  }
+
+  try {
+    const response = await fetch(HF_API_URL, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${HF_API_TOKEN}`,
+        'Content-Type': 'application/octet-stream',
+        Accept: 'application/json',
+      },
+      body: req.file.buffer,
+    });
+
+    if (!response.ok) {
+      const contentType = response.headers.get('content-type') || '';
+      const isJson = contentType.includes('application/json');
+      const errorPayload = isJson ? await response.json() : await response.text();
+
+      if (response.status === 503 && errorPayload && errorPayload.estimated_time) {
+        res.status(503).json({
+          error: 'Model is warming up. Please retry shortly.',
+          estimatedTime: errorPayload.estimated_time,
+        });
+        return;
+      }
+
+      res.status(response.status).json({
+        error: 'Transcription failed.',
+        details: errorPayload,
+      });
       return;
     }
 
-    const ext = path.extname(resolvedPath);
-    const contentType = mimeTypes[ext] || 'application/octet-stream';
-    const stream = fs.createReadStream(resolvedPath);
+    const result = await response.json();
+    let transcript = '';
 
-    stream.on('open', () => {
-      res.writeHead(200, { 'Content-Type': contentType });
-      stream.pipe(res);
-    });
+    if (typeof result.text === 'string') {
+      transcript = result.text;
+    } else if (Array.isArray(result) && result[0] && typeof result[0].text === 'string') {
+      transcript = result[0].text;
+    }
 
-    stream.on('error', () => {
-      sendResponse(res, 500, 'Internal server error');
-    });
-  });
-};
-
-const server = http.createServer((req, res) => {
-  const parsedUrl = url.parse(req.url);
-
-  if (parsedUrl.pathname === '/health') {
-    sendResponse(res, 200, JSON.stringify({ status: 'ok' }), 'application/json; charset=UTF-8');
-    return;
+    res.json({ text: transcript.trim() });
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('Transcription error', error);
+    res.status(500).json({ error: 'Unexpected server error during transcription.' });
   }
-
-  let requestPath = parsedUrl.pathname;
-
-  if (requestPath === '/' || requestPath === '') {
-    requestPath = '/index.html';
-  }
-
-  serveStaticFile(res, requestPath);
 });
 
-server.listen(PORT, () => {
+app.use((req, res) => {
+  res.status(404).json({ error: 'Not found' });
+});
+
+app.listen(PORT, () => {
   // eslint-disable-next-line no-console
   console.log(`Speech-to-text web app listening on port ${PORT}`);
 });

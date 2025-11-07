@@ -7,62 +7,119 @@
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <header class="hero">
-      <h1>Speech to Text Transcription</h1>
-      <p>Transcribe spoken words into text in US or Indian English accents.</p>
-    </header>
-
-    <main class="container">
-      <section class="controls">
-        <div class="control-group">
-          <label for="language">Recognition accent</label>
-          <select id="language">
-            <option value="en-US">English (United States)</option>
-            <option value="en-IN">English (India)</option>
-          </select>
+    <div class="hero">
+      <div class="hero__content">
+        <h1>Orion Speech Studio</h1>
+        <p>
+          Record or upload audio and let an open-source Whisper GPT model deliver accurate
+          transcripts optimised for US and Indian English speakers.
+        </p>
+        <div class="hero__cta">
+          <button id="start" class="btn btn--primary">
+            <span class="btn__icon" aria-hidden="true">●</span>
+            Start recording
+          </button>
+          <button id="stop" class="btn btn--surface" disabled>
+            <span class="btn__icon" aria-hidden="true">■</span>
+            Stop &amp; transcribe
+          </button>
+          <label for="upload" class="btn btn--ghost">
+            <span class="btn__icon" aria-hidden="true">⇪</span>
+            Upload audio
+          </label>
+          <input type="file" id="upload" accept="audio/*" hidden />
         </div>
+        <p class="hero__hint">No audio leaves your browser until you press stop or upload.</p>
+      </div>
+      <div class="hero__visual" aria-hidden="true">
+        <div class="pulse"></div>
+        <div class="pulse"></div>
+        <div class="pulse"></div>
+      </div>
+    </div>
 
-        <div class="control-group">
-          <label for="continuous">
-            <input type="checkbox" id="continuous" checked />
-            Continuous recognition
+    <main class="layout">
+      <section class="panel panel--controls">
+        <header>
+          <h2>Session controls</h2>
+          <p>Fine-tune recognition for different accents and capture styles.</p>
+        </header>
+
+        <div class="form-grid">
+          <label class="input">
+            <span>Accent focus</span>
+            <select id="language">
+              <option value="en-US">English (United States)</option>
+              <option value="en-IN">English (India)</option>
+            </select>
+          </label>
+
+          <label class="input">
+            <span>Recording quality</span>
+            <select id="quality">
+              <option value="studio">Studio microphone</option>
+              <option value="meeting">Meeting room</option>
+              <option value="mobile">Mobile device</option>
+            </select>
+          </label>
+
+          <label class="toggle">
+            <input type="checkbox" id="auto-punctuate" checked />
+            <span class="toggle__text">Smart punctuation</span>
+          </label>
+
+          <label class="toggle">
+            <input type="checkbox" id="append-mode" checked />
+            <span class="toggle__text">Append to transcript</span>
           </label>
         </div>
 
-        <div class="control-buttons">
-          <button id="start" class="primary">Start listening</button>
-          <button id="stop" class="secondary" disabled>Stop</button>
-          <button id="clear" class="ghost">Clear transcript</button>
+        <div class="meter" id="record-visualizer" aria-hidden="true">
+          <span></span>
+          <span></span>
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+
+        <div class="inline-actions">
+          <button id="clear" class="btn btn--ghost">Clear transcript</button>
+          <button id="copy" class="btn btn--surface">Copy text</button>
         </div>
       </section>
 
-      <section class="transcript-section">
-        <h2>Transcript</h2>
-        <textarea id="transcript" rows="10" placeholder="Transcript will appear here" readonly></textarea>
-        <div class="transcript-actions">
-          <button id="copy" class="ghost">Copy to clipboard</button>
-          <span id="status" role="status" aria-live="polite"></span>
-        </div>
+      <section class="panel panel--transcript">
+        <header>
+          <h2>Transcript</h2>
+          <span id="status" class="status" role="status" aria-live="polite"></span>
+        </header>
+
+        <article id="transcript" class="transcript" aria-live="polite" aria-label="Transcript output"></article>
+
+        <footer class="panel__footer">
+          <p>
+            The transcription endpoint uses an open-source Whisper GPT model. Provide your Hugging
+            Face API token on the server to enable full accuracy results.
+          </p>
+        </footer>
+      </section>
+
+      <section class="panel panel--tips">
+        <header>
+          <h2>Capture tips</h2>
+        </header>
+        <ul>
+          <li>Speak clearly and pause briefly between sentences for best punctuation.</li>
+          <li>Switch the accent focus when transcribing American or Indian English speakers.</li>
+          <li>Use the upload option for pre-recorded meetings, podcasts, or voicemail audio.</li>
+        </ul>
       </section>
     </main>
 
-    <footer>
-      <p>
-        For best results, use a modern Chromium-based browser with microphone access
-        granted.
-      </p>
+    <footer class="page-footer">
+      <small>Built with open-source transcription models and thoughtful UX flourishes.</small>
     </footer>
 
-    <template id="no-support">
-      <div class="unsupported">
-        <h2>Your browser does not support speech recognition.</h2>
-        <p>
-          Try using the latest version of Chrome, Edge, or another browser with the Web
-          Speech API enabled.
-        </p>
-      </div>
-    </template>
-
-    <script src="app.js" defer></script>
+    <script src="app.js" type="module"></script>
   </body>
 </html>
