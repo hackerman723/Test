@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Speech to Text</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="hero">
+      <div class="hero__content">
+        <h1>Orion Speech Studio</h1>
+        <p>
+          Stream your speech live to an open-source Whisper GPT model for responsive transcripts
+          optimised for US and Indian English speakers.
+        </p>
+        <div class="hero__cta">
+          <button id="start" class="btn btn--primary">
+            <span class="btn__icon" aria-hidden="true">●</span>
+            Start recording
+          </button>
+          <button id="stop" class="btn btn--surface" disabled>
+            <span class="btn__icon" aria-hidden="true">■</span>
+            Stop live capture
+          </button>
+          <label for="upload" class="btn btn--ghost">
+            <span class="btn__icon" aria-hidden="true">⇪</span>
+            Upload audio
+          </label>
+          <input type="file" id="upload" accept="audio/*" hidden />
+        </div>
+        <p class="hero__hint">Audio streams securely while recording and stops the moment you finish.</p>
+      </div>
+      <div class="hero__visual" aria-hidden="true">
+        <div class="pulse"></div>
+        <div class="pulse"></div>
+        <div class="pulse"></div>
+      </div>
+    </div>
+
+    <main class="layout">
+      <section class="panel panel--controls">
+        <header>
+          <h2>Session controls</h2>
+          <p>Fine-tune recognition for different accents and capture styles.</p>
+        </header>
+
+        <div class="form-grid">
+          <label class="input">
+            <span>Accent focus</span>
+            <select id="language">
+              <option value="en-US">English (United States)</option>
+              <option value="en-IN">English (India)</option>
+            </select>
+          </label>
+
+          <label class="input">
+            <span>Recording quality</span>
+            <select id="quality">
+              <option value="studio">Studio microphone</option>
+              <option value="meeting">Meeting room</option>
+              <option value="mobile">Mobile device</option>
+            </select>
+          </label>
+
+          <label class="toggle">
+            <input type="checkbox" id="auto-punctuate" checked />
+            <span class="toggle__text">Smart punctuation</span>
+          </label>
+
+          <label class="toggle">
+            <input type="checkbox" id="append-mode" checked />
+            <span class="toggle__text">Append to transcript</span>
+          </label>
+        </div>
+
+        <div class="meter" id="record-visualizer" aria-hidden="true">
+          <span></span>
+          <span></span>
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+
+        <div class="inline-actions">
+          <button id="clear" class="btn btn--ghost">Clear transcript</button>
+          <button id="copy" class="btn btn--surface">Copy text</button>
+        </div>
+      </section>
+
+      <section class="panel panel--transcript">
+        <header>
+          <h2>Transcript</h2>
+          <span id="status" class="status" role="status" aria-live="polite"></span>
+        </header>
+
+        <article id="transcript" class="transcript" aria-live="polite" aria-label="Transcript output"></article>
+
+        <footer class="panel__footer">
+          <p>
+            The transcription endpoint uses an open-source Whisper GPT model. Provide your Hugging
+            Face API token on the server to enable full accuracy results.
+          </p>
+        </footer>
+      </section>
+
+      <section class="panel panel--tips">
+        <header>
+          <h2>Capture tips</h2>
+        </header>
+        <ul>
+          <li>Speak clearly and pause briefly between sentences for best punctuation.</li>
+          <li>Switch the accent focus when transcribing American or Indian English speakers.</li>
+          <li>Use the upload option for pre-recorded meetings, podcasts, or voicemail audio.</li>
+        </ul>
+      </section>
+    </main>
+
+    <footer class="page-footer">
+      <small>Built with open-source transcription models and thoughtful UX flourishes.</small>
+    </footer>
+
+    <script src="app.js" type="module"></script>
+  </body>
+</html>
