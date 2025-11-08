@@ -24,7 +24,7 @@ Set the following environment variables before starting the server:
 | Variable | Description | Default |
 | --- | --- | --- |
 | `HF_API_TOKEN` | Hugging Face API token used to authenticate against the model endpoint. | – |
-| `HF_API_URL` | Optional. Override the inference URL if you deploy a custom model. | `https://api-inference.huggingface.co/models/openai/whisper-large-v3` |
+| `HF_API_URL` | Optional. Override the inference URL if you deploy a custom model. | `https://router.huggingface.co/hf-inference/models/openai/whisper-large-v3` |
 | `TRANSCRIPTION_PROVIDER` | Force `huggingface` or `local`. Auto-selects based on config when unset. | Auto |
 | `LOCAL_MODEL_ID` | Whisper model to load via Transformers.js in local mode. | `Xenova/whisper-small.en` |
 | `PORT` | Optional. Port for the Node.js server. | `3000` |

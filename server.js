@@ -8,7 +8,8 @@ if (typeof global.navigator === 'undefined') {
 
 const PORT = process.env.PORT || 3000;
 const HF_API_URL =
-  process.env.HF_API_URL || 'https://api-inference.huggingface.co/models/openai/whisper-large-v3';
+  process.env.HF_API_URL ||
+  'https://router.huggingface.co/hf-inference/models/openai/whisper-large-v3';
 const HF_API_TOKEN = process.env.HF_API_TOKEN;
 const LOCAL_MODEL_ID = process.env.LOCAL_MODEL_ID || 'Xenova/whisper-small.en';
 const PROVIDER_ENV = (process.env.TRANSCRIPTION_PROVIDER || '').toLowerCase();
@@ -119,6 +120,11 @@ const loadLocalPipeline = async () => {
 
       if (transformers?.env) {
         transformers.env.allowLocalModels = false;
+        transformers.env.allowRemoteModels = true;
+
+        if (!transformers.env.HF_HUB_URL) {
+          transformers.env.HF_HUB_URL = 'https://huggingface.co';
+        }
 
         if ('localModelPath' in transformers.env) {
           delete transformers.env.localModelPath;
