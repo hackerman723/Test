@@ -11,8 +11,8 @@
       <div class="hero__content">
         <h1>Orion Speech Studio</h1>
         <p>
-          Stream your speech live to an open-source Whisper GPT model for responsive transcripts
-          optimised for US and Indian English speakers.
+          Deliver live, technical-ready transcripts in your browser. Toggle between US and Indian
+          English accents and surface IT terminology instantly while you speak.
         </p>
         <div class="hero__cta">
           <button id="start" class="btn btn--primary">
@@ -39,6 +39,30 @@
     </div>
 
     <main class="layout">
+      <section class="panel panel--transcript">
+        <header class="panel__header">
+          <div class="panel__title">
+            <h2>Live transcript</h2>
+            <span id="provider" class="provider" aria-live="polite">Detecting transcriber…</span>
+          </div>
+          <span id="status" class="status" role="status" aria-live="polite"></span>
+        </header>
+
+        <article
+          id="transcript"
+          class="transcript"
+          aria-live="polite"
+          aria-label="Transcript output"
+        ></article>
+
+        <footer class="panel__footer">
+          <p>
+            Highlighted keywords help you review cloud, DevOps, and IT phrases immediately. Copy or
+            clear the transcript at any time.
+          </p>
+        </footer>
+      </section>
+
       <section class="panel panel--controls">
         <header>
           <h2>Session controls</h2>
@@ -86,22 +110,6 @@
           <button id="clear" class="btn btn--ghost">Clear transcript</button>
           <button id="copy" class="btn btn--surface">Copy text</button>
         </div>
-      </section>
-
-      <section class="panel panel--transcript">
-        <header>
-          <h2>Transcript</h2>
-          <span id="status" class="status" role="status" aria-live="polite"></span>
-        </header>
-
-        <article id="transcript" class="transcript" aria-live="polite" aria-label="Transcript output"></article>
-
-        <footer class="panel__footer">
-          <p>
-            The transcription endpoint uses an open-source Whisper GPT model. Provide your Hugging
-            Face API token on the server to enable full accuracy results.
-          </p>
-        </footer>
       </section>
 
       <section class="panel panel--tips">

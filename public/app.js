@@ -1,4 +1,5 @@
 const statusEl = document.querySelector('#status');
+const providerEl = document.querySelector('#provider');
 const transcriptEl = document.querySelector('#transcript');
 const languageEl = document.querySelector('#language');
 const qualityEl = document.querySelector('#quality');
@@ -11,6 +12,76 @@ const copyButton = document.querySelector('#copy');
 const uploadInput = document.querySelector('#upload');
 const meterEl = document.querySelector('#record-visualizer');
 
+const TECH_KEYWORDS = [
+  'API',
+  'APIs',
+  'access control',
+  'algorithm',
+  'analytics',
+  'automation',
+  'availability',
+  'bandwidth',
+  'cloud',
+  'cluster',
+  'compile',
+  'container',
+  'cybersecurity',
+  'database',
+  'data center',
+  'debug',
+  'deploy',
+  'DevOps',
+  'disaster recovery',
+  'Docker',
+  'endpoint',
+  'encryption',
+  'firewall',
+  'framework',
+  'Git',
+  'integration',
+  'infrastructure',
+  'Kubernetes',
+  'latency',
+  'load balancer',
+  'microservice',
+  'network',
+  'pipeline',
+  'production',
+  'release',
+  'repository',
+  'scalability',
+  'server',
+  'service desk',
+  'sprint',
+  'SQL',
+  'throughput',
+  'virtual machine',
+  'virtualization',
+  'workflow',
+];
+
+const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const escapedKeywords = TECH_KEYWORDS.map(escapeRegExp).sort((a, b) => b.length - a.length);
+const keywordPattern = new RegExp(`(${escapedKeywords.join('|')})`, 'gi');
+
+const escapeHtml = (value) =>
+  value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+
+const highlightTechnicalTerms = (text) => {
+  if (!text) return '';
+  return escapeHtml(text).replace(keywordPattern, (match) => `<mark>${match}</mark>`);
+};
+
+const updateSegmentContent = (segment, text) => {
+  segment.dataset.raw = text;
+  segment.innerHTML = highlightTechnicalTerms(text);
+};
+
 const state = {
   mediaRecorder: null,
   isRecording: false,
@@ -19,6 +90,7 @@ const state = {
   liveBuffer: '',
   chunkQueue: Promise.resolve(),
   awaitingFinalChunk: false,
+  provider: 'unknown',
 };
 
 const setStatus = (message, tone = 'info') => {
@@ -56,7 +128,7 @@ const renderSegment = (text, source) => {
   const segment = document.createElement('p');
   segment.className = 'transcript__segment';
   segment.dataset.source = source;
-  segment.textContent = text;
+  updateSegmentContent(segment, text);
 
   if (!appendModeEl.checked) {
     transcriptEl.replaceChildren(segment);
@@ -69,7 +141,7 @@ const renderSegment = (text, source) => {
 
 const readTranscriptText = () =>
   Array.from(transcriptEl.querySelectorAll('.transcript__segment'))
-    .map((node) => node.textContent.trim())
+    .map((node) => (node.dataset.raw || node.textContent || '').trim())
     .filter(Boolean)
     .join('\n\n');
 
@@ -107,7 +179,7 @@ const appendLiveText = (chunkText) => {
     ? `${state.liveBuffer} ${formatted}`.trim()
     : formatted;
 
-  segment.textContent = state.liveBuffer;
+  updateSegmentContent(segment, state.liveBuffer);
 };
 
 const finaliseLiveSegment = () => {
@@ -183,9 +255,7 @@ const handleLiveChunk = async (blob, { isFinal = false } = {}) => {
 };
 
 const queueLiveChunk = (blob, options = {}) => {
-  state.chunkQueue = state.chunkQueue
-    .catch(() => {})
-    .then(() => handleLiveChunk(blob, options));
+  state.chunkQueue = state.chunkQueue.catch(() => {}).then(() => handleLiveChunk(blob, options));
 };
 
 const transcribeBlob = async (blob, sourceLabel) => {
@@ -274,7 +344,7 @@ const startRecording = async () => {
 
     mediaRecorder.addEventListener('start', () => {
       setRecordingUi(true);
-      setStatus('Recording… speak naturally and tap stop when finished.');
+      setStatus('Recording… technical terms will be highlighted automatically.');
     });
 
     mediaRecorder.addEventListener('stop', async () => {
@@ -337,10 +407,48 @@ uploadInput.addEventListener('change', async (event) => {
   uploadInput.value = '';
 });
 
+const hydrateProviderDetails = async () => {
+  setStatus('Preparing transcription engine…');
+
+  try {
+    const response = await fetch('/api/status');
+    if (!response.ok) {
+      throw new Error(`Status request failed (${response.status})`);
+    }
+
+    const payload = await response.json();
+    state.provider = payload.provider || 'unknown';
+
+    const providerLabel =
+      state.provider === 'huggingface'
+        ? 'Hugging Face Whisper GPT'
+        : `Local Whisper (${payload?.local?.modelId || 'Xenova/whisper-small.en'})`;
+
+    if (providerEl) {
+      providerEl.textContent = providerLabel;
+      providerEl.dataset.provider = state.provider;
+    }
+
+    if (state.provider === 'huggingface') {
+      setStatus('Ready to capture speech with low-latency Hugging Face inference.');
+    } else {
+      setStatus('Ready to capture speech with on-device Whisper transcription.');
+    }
+  } catch (error) {
+    console.warn('Unable to determine provider', error);
+    state.provider = 'unknown';
+    if (providerEl) {
+      providerEl.textContent = 'Transcriber not initialised';
+      providerEl.dataset.provider = 'unknown';
+    }
+    setStatus('Ready to capture speech. Configure the server if you encounter issues.', 'warn');
+  }
+};
+
 if (!window.MediaRecorder) {
   setStatus('MediaRecorder is not supported. Use the upload button instead.', 'warn');
   startButton.disabled = true;
   stopButton.disabled = true;
 } else {
-  setStatus('Ready to capture speech.');
+  hydrateProviderDetails();
 }
