@@ -119,7 +119,11 @@ const loadLocalPipeline = async () => {
 
       if (transformers?.env) {
         transformers.env.allowLocalModels = false;
-        transformers.env.localModelPath = null;
+
+        if ('localModelPath' in transformers.env) {
+          delete transformers.env.localModelPath;
+        }
+
         transformers.env.backends.onnx.wasm.wasmPaths = transformers.env.backends.onnx.wasm.wasmPaths || {};
       }
 
