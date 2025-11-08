@@ -303,7 +303,10 @@ const runLocalLiveTranscription = async (sessionId, buffer, isFinalChunk) => {
     localSessions.set(sessionId, session);
   }
 
-  return delta.trim();
+  return {
+    delta: delta.trim(),
+    fullText: fullTranscript,
+  };
 };
 
 const runPreferredLiveTranscription = async (sessionId, buffer, isFinalChunk, mimeType) => {
@@ -329,7 +332,12 @@ const runPreferredLiveTranscription = async (sessionId, buffer, isFinalChunk, mi
         huggingFaceSessions.set(sessionKey, session);
       }
 
-      return { text: delta.trim(), provider: 'huggingface', fallback: false };
+      return {
+        text: delta.trim(),
+        fullText: transcript,
+        provider: 'huggingface',
+        fallback: false,
+      };
     } catch (error) {
       if (isFinalChunk) {
         huggingFaceSessions.delete(sessionKey);
@@ -344,9 +352,10 @@ const runPreferredLiveTranscription = async (sessionId, buffer, isFinalChunk, mi
       // eslint-disable-next-line no-console
       console.warn('Falling back to local live transcription after Hugging Face error.', error);
 
-      const transcript = await runLocalLiveTranscription(sessionKey, buffer, isFinalChunk);
+      const localResult = await runLocalLiveTranscription(sessionKey, buffer, isFinalChunk);
       return {
-        text: transcript,
+        text: localResult.delta,
+        fullText: localResult.fullText,
         provider: 'local',
         fallback: true,
         reason: normaliseErrorMessage(error),
@@ -354,8 +363,13 @@ const runPreferredLiveTranscription = async (sessionId, buffer, isFinalChunk, mi
     }
   }
 
-  const transcript = await runLocalLiveTranscription(sessionId, buffer, isFinalChunk);
-  return { text: transcript, provider: 'local', fallback: false };
+  const localResult = await runLocalLiveTranscription(sessionId, buffer, isFinalChunk);
+  return {
+    text: localResult.delta,
+    fullText: localResult.fullText,
+    provider: 'local',
+    fallback: false,
+  };
 };
 
 app.use((req, res, next) => {

@@ -258,6 +258,17 @@ const appendLiveText = (chunkText) => {
   updateSegmentContent(segment, state.liveBuffer);
 };
 
+const setLiveText = (fullText) => {
+  if (!fullText) return;
+
+  const segment = ensureLiveSegment();
+  if (!segment) return;
+
+  const formatted = formatTranscript(fullText);
+  state.liveBuffer = formatted;
+  updateSegmentContent(segment, state.liveBuffer);
+};
+
 const finaliseLiveSegment = () => {
   if (state.liveSegment && transcriptEl?.contains(state.liveSegment)) {
     state.liveSegment.dataset.live = 'false';
@@ -311,10 +322,15 @@ const handleLiveChunk = async (blob, { isFinal = false } = {}) => {
     syncActiveProvider(providerUsed, { fallback, reason });
 
     const text = (payload.text || '').trim();
+    const fullText = (payload.fullText || '').trim();
 
-    if (text) {
+    if (fullText) {
+      setLiveText(fullText);
+    } else if (text) {
       appendLiveText(text);
+    }
 
+    if (fullText || text) {
       let tone = isFinal ? 'success' : 'info';
       let message = getLiveStatusMessage(isFinal, state.fallbackActive);
 
