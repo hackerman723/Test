@@ -484,9 +484,6 @@ const stopRecording = () => {
   state.mediaRecorder.stop();
 };
 
-startButton.addEventListener('click', startRecording);
-stopButton.addEventListener('click', stopRecording);
-
 const hydrateProviderDetails = async () => {
   setStatus('Preparing translation engine…');
 
