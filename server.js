@@ -153,14 +153,29 @@ const runLocalTranscription = async (buffer) => {
   return (output?.text || '').trim();
 };
 
-const runHuggingFaceTranscription = async (buffer) => {
+const resolveMimeType = (mimeType) => {
+  if (typeof mimeType === 'string') {
+    const trimmed = mimeType.trim();
+    if (trimmed) {
+      if (trimmed === 'application/octet-stream') {
+        return 'audio/webm';
+      }
+      return trimmed;
+    }
+  }
+
+  return 'audio/webm';
+};
+
+const runHuggingFaceTranscription = async (buffer, mimeType) => {
+  const resolvedType = resolveMimeType(mimeType);
   let response;
   try {
     response = await fetch(HF_API_URL, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${HF_API_TOKEN}`,
-        'Content-Type': 'application/octet-stream',
+        'Content-Type': resolvedType,
         Accept: 'application/json',
       },
       body: buffer,
@@ -204,7 +219,7 @@ const runHuggingFaceTranscription = async (buffer) => {
 
 const runLocalQueuedTranscription = (buffer) => queueLocalTask(() => runLocalTranscription(buffer));
 
-const runPreferredTranscription = async (buffer) => {
+const runPreferredTranscription = async (buffer, mimeType) => {
   if (ACTIVE_PROVIDER === 'huggingface') {
     if (!HF_API_TOKEN) {
       const error = new Error('Server misconfigured: missing HF_API_TOKEN.');
@@ -213,7 +228,7 @@ const runPreferredTranscription = async (buffer) => {
     }
 
     try {
-      const transcript = await runHuggingFaceTranscription(buffer);
+      const transcript = await runHuggingFaceTranscription(buffer, mimeType);
       return { text: transcript, provider: 'huggingface', fallback: false };
     } catch (error) {
       if (!shouldFallbackToLocal(error)) {
@@ -279,10 +294,10 @@ const runLocalLiveTranscription = async (sessionId, buffer, isFinalChunk) => {
   return delta.trim();
 };
 
-const runPreferredLiveTranscription = async (sessionId, buffer, isFinalChunk) => {
+const runPreferredLiveTranscription = async (sessionId, buffer, isFinalChunk, mimeType) => {
   if (ACTIVE_PROVIDER === 'huggingface') {
     try {
-      const transcript = await runHuggingFaceTranscription(buffer);
+      const transcript = await runHuggingFaceTranscription(buffer, mimeType);
       return { text: transcript, provider: 'huggingface', fallback: false };
     } catch (error) {
       if (!shouldFallbackToLocal(error)) {
@@ -344,7 +359,7 @@ app.post('/api/transcribe', upload.single('audio'), async (req, res) => {
   }
 
   try {
-    const result = await runPreferredTranscription(req.file.buffer);
+    const result = await runPreferredTranscription(req.file.buffer, req.file.mimetype);
     res.json(result);
   } catch (error) {
     const status = error.status || 500;
@@ -369,7 +384,12 @@ app.post('/api/transcribe/live', upload.single('audio'), async (req, res) => {
     const isFinalChunk = req.body?.isFinal === 'true';
     const sessionId = req.body?.sessionId || 'default-live-session';
 
-    const result = await runPreferredLiveTranscription(sessionId, req.file.buffer, isFinalChunk);
+    const result = await runPreferredLiveTranscription(
+      sessionId,
+      req.file.buffer,
+      isFinalChunk,
+      req.file.mimetype,
+    );
     res.json(result);
   } catch (error) {
     const status = error.status || 500;
