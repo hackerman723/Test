@@ -39,7 +39,7 @@ When `HF_API_TOKEN` is provided (or when `TRANSCRIPTION_PROVIDER=huggingface` an
 
 ### Local Transformers.js fallback
 
-If a Hugging Face token is not configured—or if Hugging Face fails during a request—the server loads the open-source [`Xenova/whisper-small.en`](https://huggingface.co/Xenova/whisper-small.en) model through `@xenova/transformers` and `@xenova/ffmpeg`. This runs fully within your Node.js process—ideal for private demos or offline scenarios. You can customise the model with `LOCAL_MODEL_ID` if you prefer a multilingual or larger checkpoint.
+If a Hugging Face token is not configured—or if Hugging Face fails during a request—the server loads the open-source [`Xenova/whisper-small.en`](https://huggingface.co/Xenova/whisper-small.en) model through `@xenova/transformers`. This runs fully within your Node.js process—ideal for private demos or offline scenarios. You can customise the model with `LOCAL_MODEL_ID` if you prefer a multilingual or larger checkpoint.
 
 ## Local development
 
