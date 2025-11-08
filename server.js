@@ -76,6 +76,7 @@ if (ACTIVE_PROVIDER === 'local' && !HF_API_TOKEN && PROVIDER_ENV === 'huggingfac
 let localPipelinePromise = null;
 let localQueue = Promise.resolve();
 const localSessions = new Map();
+const huggingFaceSessions = new Map();
 
 const normaliseErrorMessage = (error) => {
   if (!error) return 'Unknown error';
@@ -263,25 +264,36 @@ const runPreferredTranscription = async (buffer, mimeType) => {
   return { text: transcript, provider: 'local', fallback: false };
 };
 
+const computeTranscriptDelta = (previous, next) => {
+  const prev = (previous || '').trim();
+  const curr = (next || '').trim();
+
+  if (!prev) {
+    return curr;
+  }
+
+  if (!curr) {
+    return '';
+  }
+
+  const lowerPrev = prev.toLowerCase();
+  const lowerCurr = curr.toLowerCase();
+
+  if (lowerCurr.startsWith(lowerPrev)) {
+    return curr.slice(prev.length).trim();
+  }
+
+  const idx = lowerCurr.lastIndexOf(lowerPrev);
+  return idx >= 0 ? curr.slice(idx + prev.length).trim() : curr;
+};
+
 const runLocalLiveTranscription = async (sessionId, buffer, isFinalChunk) => {
   const session = localSessions.get(sessionId) || { chunks: [], lastText: '' };
   session.chunks.push(buffer);
 
   const combined = Buffer.concat(session.chunks);
   const fullTranscript = await runLocalQueuedTranscription(combined);
-
-  let delta = fullTranscript;
-  if (session.lastText) {
-    const previous = session.lastText.trim();
-    const next = fullTranscript.trim();
-
-    if (next.toLowerCase().startsWith(previous.toLowerCase())) {
-      delta = next.slice(previous.length).trim();
-    } else {
-      const idx = next.toLowerCase().lastIndexOf(previous.toLowerCase());
-      delta = idx >= 0 ? next.slice(idx + previous.length).trim() : next;
-    }
-  }
+  const delta = computeTranscriptDelta(session.lastText, fullTranscript);
 
   session.lastText = fullTranscript;
 
@@ -296,10 +308,35 @@ const runLocalLiveTranscription = async (sessionId, buffer, isFinalChunk) => {
 
 const runPreferredLiveTranscription = async (sessionId, buffer, isFinalChunk, mimeType) => {
   if (ACTIVE_PROVIDER === 'huggingface') {
+    const sessionKey = sessionId || 'default-live-session';
+    const session = huggingFaceSessions.get(sessionKey) || { chunks: [], lastText: '', mimeType: '' };
+    session.chunks.push(buffer);
+
+    if (!session.mimeType && mimeType) {
+      session.mimeType = mimeType;
+    }
+
+    const combined = Buffer.concat(session.chunks);
+
     try {
-      const transcript = await runHuggingFaceTranscription(buffer, mimeType);
-      return { text: transcript, provider: 'huggingface', fallback: false };
+      const transcript = await runHuggingFaceTranscription(combined, session.mimeType || mimeType);
+      const delta = computeTranscriptDelta(session.lastText, transcript);
+      session.lastText = transcript;
+
+      if (isFinalChunk) {
+        huggingFaceSessions.delete(sessionKey);
+      } else {
+        huggingFaceSessions.set(sessionKey, session);
+      }
+
+      return { text: delta.trim(), provider: 'huggingface', fallback: false };
     } catch (error) {
+      if (isFinalChunk) {
+        huggingFaceSessions.delete(sessionKey);
+      } else {
+        huggingFaceSessions.set(sessionKey, session);
+      }
+
       if (!shouldFallbackToLocal(error)) {
         throw error;
       }
@@ -307,7 +344,7 @@ const runPreferredLiveTranscription = async (sessionId, buffer, isFinalChunk, mi
       // eslint-disable-next-line no-console
       console.warn('Falling back to local live transcription after Hugging Face error.', error);
 
-      const transcript = await runLocalLiveTranscription(sessionId, buffer, isFinalChunk);
+      const transcript = await runLocalLiveTranscription(sessionKey, buffer, isFinalChunk);
       return {
         text: transcript,
         provider: 'local',
