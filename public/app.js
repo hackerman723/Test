@@ -1,16 +1,16 @@
-const statusEl = document.querySelector('#status');
-const providerEl = document.querySelector('#provider');
-const transcriptEl = document.querySelector('#transcript');
-const languageEl = document.querySelector('#language');
-const qualityEl = document.querySelector('#quality');
-const autoPunctuateEl = document.querySelector('#auto-punctuate');
-const appendModeEl = document.querySelector('#append-mode');
-const startButton = document.querySelector('#start');
-const stopButton = document.querySelector('#stop');
-const clearButton = document.querySelector('#clear');
-const copyButton = document.querySelector('#copy');
-const uploadInput = document.querySelector('#upload');
-const meterEl = document.querySelector('#record-visualizer');
+let statusEl;
+let providerEl;
+let transcriptEl;
+let languageEl;
+let qualityEl;
+let autoPunctuateEl;
+let appendModeEl;
+let startButton;
+let stopButton;
+let clearButton;
+let copyButton;
+let uploadInput;
+let meterEl;
 
 const TECH_KEYWORDS = [
   'API',
@@ -98,15 +98,22 @@ const state = {
 };
 
 const setStatus = (message, tone = 'info') => {
+  if (!statusEl) return;
   statusEl.textContent = message;
   statusEl.dataset.tone = tone;
 };
 
 const setRecordingUi = (isRecording) => {
   state.isRecording = isRecording;
-  startButton.disabled = isRecording;
-  stopButton.disabled = !isRecording;
-  meterEl.dataset.active = String(isRecording);
+  if (startButton) {
+    startButton.disabled = isRecording;
+  }
+  if (stopButton) {
+    stopButton.disabled = !isRecording;
+  }
+  if (meterEl) {
+    meterEl.dataset.active = String(isRecording);
+  }
 };
 
 const getProviderLabel = (provider) => {
@@ -186,8 +193,13 @@ const renderSegment = (text, source) => {
   segment.dataset.source = source;
   updateSegmentContent(segment, text);
 
-  if (!appendModeEl.checked) {
-    transcriptEl.replaceChildren(segment);
+  if (!transcriptEl) {
+    return;
+  }
+
+  if (!appendModeEl?.checked) {
+    transcriptEl.innerHTML = '';
+    transcriptEl.appendChild(segment);
   } else {
     transcriptEl.appendChild(segment);
   }
@@ -195,13 +207,19 @@ const renderSegment = (text, source) => {
   transcriptEl.scrollTo({ top: transcriptEl.scrollHeight, behavior: 'smooth' });
 };
 
-const readTranscriptText = () =>
-  Array.from(transcriptEl.querySelectorAll('.transcript__segment'))
+const readTranscriptText = () => {
+  if (!transcriptEl) return '';
+  return Array.from(transcriptEl.querySelectorAll('.transcript__segment'))
     .map((node) => (node.dataset.raw || node.textContent || '').trim())
     .filter(Boolean)
     .join('\n\n');
+};
 
 const ensureLiveSegment = () => {
+  if (!transcriptEl) {
+    return null;
+  }
+
   if (state.liveSegment && transcriptEl.contains(state.liveSegment)) {
     return state.liveSegment;
   }
@@ -213,8 +231,9 @@ const ensureLiveSegment = () => {
   segment.dataset.live = 'true';
   segment.textContent = '';
 
-  if (!appendModeEl.checked) {
-    transcriptEl.replaceChildren(segment);
+  if (!appendModeEl?.checked) {
+    transcriptEl.innerHTML = '';
+    transcriptEl.appendChild(segment);
   } else {
     transcriptEl.appendChild(segment);
   }
@@ -229,6 +248,7 @@ const appendLiveText = (chunkText) => {
   if (!chunkText) return;
 
   const segment = ensureLiveSegment();
+  if (!segment) return;
   const formatted = formatTranscript(chunkText);
 
   state.liveBuffer = state.liveBuffer
@@ -239,7 +259,7 @@ const appendLiveText = (chunkText) => {
 };
 
 const finaliseLiveSegment = () => {
-  if (state.liveSegment && transcriptEl.contains(state.liveSegment)) {
+  if (state.liveSegment && transcriptEl?.contains(state.liveSegment)) {
     state.liveSegment.dataset.live = 'false';
   }
 
@@ -307,7 +327,7 @@ const handleLiveChunk = async (blob, { isFinal = false } = {}) => {
       setStatus(message, tone);
     } else if (isFinal && !state.liveBuffer) {
       setStatus('No speech detected in that recording.', 'warn');
-      if (state.liveSegment) {
+      if (state.liveSegment && transcriptEl?.contains(state.liveSegment)) {
         transcriptEl.removeChild(state.liveSegment);
       }
       state.liveSegment = null;
@@ -467,36 +487,6 @@ const stopRecording = () => {
 startButton.addEventListener('click', startRecording);
 stopButton.addEventListener('click', stopRecording);
 
-clearButton.addEventListener('click', () => {
-  transcriptEl.replaceChildren();
-  setStatus('Translation cleared.');
-});
-
-copyButton.addEventListener('click', async () => {
-  const text = readTranscriptText();
-  if (!text) {
-    setStatus('No translation to copy yet.', 'warn');
-    return;
-  }
-
-  try {
-    await navigator.clipboard.writeText(text);
-    setStatus('Translation copied to clipboard.', 'success');
-  } catch (error) {
-    console.error('Clipboard error', error);
-    setStatus('Clipboard copy failed. Try again.', 'error');
-  }
-});
-
-uploadInput.addEventListener('change', async (event) => {
-  const file = event.target.files?.[0];
-  if (!file) return;
-
-  setStatus(`Uploading ${file.name} for translation…`);
-  await transcribeBlob(file, 'Upload');
-  uploadInput.value = '';
-});
-
 const hydrateProviderDetails = async () => {
   setStatus('Preparing translation engine…');
 
@@ -531,10 +521,96 @@ const hydrateProviderDetails = async () => {
   }
 };
 
-if (!window.MediaRecorder) {
-  setStatus('MediaRecorder is not supported. Use the upload button to translate audio instead.', 'warn');
-  startButton.disabled = true;
-  stopButton.disabled = true;
-} else {
+const assignDomReferences = () => {
+  statusEl = document.querySelector('#status');
+  providerEl = document.querySelector('#provider');
+  transcriptEl = document.querySelector('#transcript');
+  languageEl = document.querySelector('#language');
+  qualityEl = document.querySelector('#quality');
+  autoPunctuateEl = document.querySelector('#auto-punctuate');
+  appendModeEl = document.querySelector('#append-mode');
+  startButton = document.querySelector('#start');
+  stopButton = document.querySelector('#stop');
+  clearButton = document.querySelector('#clear');
+  copyButton = document.querySelector('#copy');
+  uploadInput = document.querySelector('#upload');
+  meterEl = document.querySelector('#record-visualizer');
+};
+
+const init = () => {
+  assignDomReferences();
+
+  const missingElements = [
+    ['#status', statusEl],
+    ['#provider', providerEl],
+    ['#transcript', transcriptEl],
+    ['#language', languageEl],
+    ['#quality', qualityEl],
+    ['#auto-punctuate', autoPunctuateEl],
+    ['#append-mode', appendModeEl],
+    ['#start', startButton],
+    ['#stop', stopButton],
+    ['#clear', clearButton],
+    ['#copy', copyButton],
+    ['#upload', uploadInput],
+    ['#record-visualizer', meterEl],
+  ]
+    .filter(([, el]) => !el)
+    .map(([selector]) => selector);
+
+  if (missingElements.length > 0) {
+    // eslint-disable-next-line no-console
+    console.error('Missing required UI elements for translation experience:', missingElements.join(', '));
+    return;
+  }
+
+  startButton.addEventListener('click', startRecording);
+  stopButton.addEventListener('click', stopRecording);
+
+  clearButton.addEventListener('click', () => {
+    if (transcriptEl) {
+      transcriptEl.innerHTML = '';
+    }
+    setStatus('Translation cleared.');
+  });
+
+  copyButton.addEventListener('click', async () => {
+    const text = readTranscriptText();
+    if (!text) {
+      setStatus('No translation to copy yet.', 'warn');
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(text);
+      setStatus('Translation copied to clipboard.', 'success');
+    } catch (error) {
+      console.error('Clipboard error', error);
+      setStatus('Clipboard copy failed. Try again.', 'error');
+    }
+  });
+
+  uploadInput.addEventListener('change', async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setStatus(`Uploading ${file.name} for translation…`);
+    await transcribeBlob(file, 'Upload');
+    uploadInput.value = '';
+  });
+
+  if (!window.MediaRecorder) {
+    setStatus('MediaRecorder is not supported. Use the upload button to translate audio instead.', 'warn');
+    startButton.disabled = true;
+    stopButton.disabled = true;
+    return;
+  }
+
   hydrateProviderDetails();
+};
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init, { once: true });
+} else {
+  init();
 }
