@@ -181,16 +181,18 @@ a {
   display: grid;
   gap: 1.75rem;
   margin: clamp(2rem, 6vw, 3.5rem) auto 0;
-  width: min(1180px, 100%);
-  grid-template-columns: minmax(380px, 2fr) minmax(260px, 1fr);
+  width: min(1260px, 100%);
+  grid-template-columns: minmax(480px, 3fr) minmax(240px, 1.15fr);
   grid-template-areas:
-    'transcript transcript'
-    'controls tips';
+    'transcript controls'
+    'transcript tips';
+  align-items: start;
 }
 
 .panel--transcript {
   grid-area: transcript;
-  padding-block: clamp(2rem, 4vw, 3rem);
+  padding-block: clamp(2.5rem, 5vw, 3.75rem);
+  min-height: clamp(520px, 68vh, 780px);
 }
 
 .panel--controls {
@@ -209,9 +211,34 @@ a {
   box-shadow: var(--shadow);
   display: flex;
   flex-direction: column;
-  gap: 1.2rem;
+  gap: 1.5rem;
   position: relative;
   overflow: hidden;
+}
+
+.panel__tab {
+  align-self: flex-start;
+  background: linear-gradient(140deg, rgba(56, 189, 248, 0.95), rgba(14, 165, 233, 0.8));
+  color: #0f172a;
+  padding: 0.55rem 1.4rem;
+  border-radius: 999px;
+  text-transform: uppercase;
+  letter-spacing: 0.24em;
+  font-weight: 700;
+  font-size: clamp(0.9rem, 1.4vw, 1.05rem);
+  box-shadow: 0 22px 48px rgba(56, 189, 248, 0.35);
+}
+
+.panel__tab-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.panel__tab-label::before {
+  content: '⟶';
+  font-size: 0.85em;
+  opacity: 0.75;
 }
 
 .panel::before {
@@ -253,7 +280,8 @@ a {
 
 .panel__title h2 {
   margin: 0;
-  font-size: clamp(1.6rem, 2.5vw, 2rem);
+  font-size: clamp(1.9rem, 3vw, 2.4rem);
+  font-weight: 700;
 }
 
 .provider {
@@ -281,6 +309,13 @@ a {
   background: rgba(16, 185, 129, 0.16);
   border-color: rgba(45, 212, 191, 0.4);
   color: rgba(110, 231, 183, 0.95);
+}
+
+.provider[data-fallback='true'] {
+  background: rgba(249, 115, 22, 0.22);
+  border-color: rgba(249, 115, 22, 0.55);
+  color: rgba(253, 186, 116, 0.95);
+  box-shadow: 0 0 20px rgba(249, 115, 22, 0.2);
 }
 
 .form-grid {
@@ -416,6 +451,7 @@ a {
   color: var(--primary);
   font-weight: 600;
   letter-spacing: 0.01em;
+  font-size: clamp(1rem, 1.6vw, 1.2rem);
 }
 
 .status[data-tone='warn'] {
@@ -431,44 +467,47 @@ a {
 }
 
 .transcript {
-  min-height: clamp(420px, 50vh, 560px);
-  padding: clamp(1.75rem, 3vw, 2.5rem);
-  border-radius: 18px;
-  background: var(--surface-strong);
-  border: 1px solid rgba(148, 163, 184, 0.4);
-  box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.25);
-  font-size: clamp(1.05rem, 1.6vw, 1.25rem);
-  line-height: 1.75;
+  min-height: clamp(560px, 65vh, 780px);
+  padding: clamp(2rem, 3.5vw, 3rem);
+  border-radius: 24px;
+  background: linear-gradient(145deg, rgba(15, 23, 42, 0.92), rgba(30, 64, 175, 0.45));
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.25), 0 35px 65px rgba(15, 23, 42, 0.55);
+  font-size: clamp(1.2rem, 2vw, 1.65rem);
+  line-height: 1.85;
   display: flex;
   flex-direction: column;
-  gap: 1.1rem;
+  gap: 1.25rem;
   overflow-y: auto;
 }
 
 .transcript__segment {
   margin: 0;
-  background: rgba(56, 189, 248, 0.09);
-  border: 1px solid rgba(56, 189, 248, 0.25);
-  padding: clamp(1.1rem, 2vw, 1.4rem);
-  border-radius: 16px;
+  background: rgba(56, 189, 248, 0.16);
+  border: 1px solid rgba(125, 211, 252, 0.45);
+  padding: clamp(1.2rem, 2.4vw, 1.65rem);
+  border-radius: 20px;
   position: relative;
   overflow: hidden;
   color: var(--text);
+  box-shadow: 0 18px 44px rgba(14, 165, 233, 0.25);
+  backdrop-filter: blur(6px);
   animation: segmentIn 320ms ease;
 }
 
 .transcript__segment mark {
-  background: rgba(250, 204, 21, 0.25);
-  color: #fde68a;
-  padding: 0 0.25rem;
+  background: rgba(250, 204, 21, 0.3);
+  color: #fef08a;
+  padding: 0 0.28rem;
   border-radius: 6px;
   font-weight: 600;
+  box-shadow: 0 8px 18px rgba(250, 204, 21, 0.2);
 }
 
 .transcript__segment--live {
-  background: linear-gradient(120deg, rgba(14, 165, 233, 0.22), rgba(59, 130, 246, 0.15));
-  border-color: rgba(56, 189, 248, 0.45);
-  box-shadow: 0 8px 22px rgba(14, 116, 244, 0.18);
+  background: linear-gradient(120deg, rgba(14, 165, 233, 0.3), rgba(59, 130, 246, 0.22));
+  border-color: rgba(56, 189, 248, 0.55);
+  box-shadow: 0 18px 46px rgba(14, 116, 244, 0.25);
 }
 
 .transcript__segment--live::after {
@@ -493,12 +532,12 @@ a {
 .transcript__segment::before {
   content: attr(data-source);
   position: absolute;
-  top: 0.55rem;
-  right: 0.9rem;
-  font-size: 0.75rem;
+  top: 0.65rem;
+  right: 1rem;
+  font-size: 0.85rem;
   text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: rgba(226, 232, 240, 0.6);
+  letter-spacing: 0.16em;
+  color: rgba(226, 232, 240, 0.82);
 }
 
 @keyframes segmentIn {

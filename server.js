@@ -33,6 +33,40 @@ const determineProvider = () => {
 
 const ACTIVE_PROVIDER = determineProvider();
 
+const FALLBACK_STATUSES = new Set([
+  401,
+  402,
+  403,
+  404,
+  408,
+  409,
+  410,
+  412,
+  413,
+  414,
+  415,
+  416,
+  417,
+  418,
+  421,
+  422,
+  423,
+  424,
+  425,
+  426,
+  429,
+  430,
+  431,
+  500,
+  502,
+  503,
+  504,
+  507,
+  508,
+  509,
+  511,
+]);
+
 if (ACTIVE_PROVIDER === 'local' && !HF_API_TOKEN && PROVIDER_ENV === 'huggingface') {
   // eslint-disable-next-line no-console
   console.warn('TRANSCRIPTION_PROVIDER=huggingface but HF_API_TOKEN missing. Falling back to local mode.');
@@ -41,6 +75,37 @@ if (ACTIVE_PROVIDER === 'local' && !HF_API_TOKEN && PROVIDER_ENV === 'huggingfac
 let localPipelinePromise = null;
 let localQueue = Promise.resolve();
 const localSessions = new Map();
+
+const normaliseErrorMessage = (error) => {
+  if (!error) return 'Unknown error';
+  if (typeof error.message === 'string' && error.message.trim()) {
+    return error.message;
+  }
+  if (error.details) {
+    if (typeof error.details === 'string' && error.details.trim()) {
+      return error.details;
+    }
+    if (typeof error.details.error === 'string' && error.details.error.trim()) {
+      return error.details.error;
+    }
+  }
+  return 'Unexpected provider error';
+};
+
+const shouldFallbackToLocal = (error) => {
+  if (!error) return false;
+  if (ACTIVE_PROVIDER !== 'huggingface') return false;
+  if (error.status === 503 && error.details?.estimatedTime) {
+    return true;
+  }
+  if (typeof error.status === 'number' && (error.status >= 500 || FALLBACK_STATUSES.has(error.status))) {
+    return true;
+  }
+  if (!error.status && error.cause instanceof Error) {
+    return true;
+  }
+  return false;
+};
 
 const queueLocalTask = (task) => {
   localQueue = localQueue.catch(() => {}).then(() => task());
@@ -79,15 +144,23 @@ const runLocalTranscription = async (buffer) => {
 };
 
 const runHuggingFaceTranscription = async (buffer) => {
-  const response = await fetch(HF_API_URL, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${HF_API_TOKEN}`,
-      'Content-Type': 'application/octet-stream',
-      Accept: 'application/json',
-    },
-    body: buffer,
-  });
+  let response;
+  try {
+    response = await fetch(HF_API_URL, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${HF_API_TOKEN}`,
+        'Content-Type': 'application/octet-stream',
+        Accept: 'application/json',
+      },
+      body: buffer,
+    });
+  } catch (cause) {
+    const networkError = new Error('Unable to reach Hugging Face transcription service.');
+    networkError.status = 503;
+    networkError.cause = cause;
+    throw networkError;
+  }
 
   if (!response.ok) {
     const contentType = response.headers.get('content-type') || '';
@@ -119,17 +192,50 @@ const runHuggingFaceTranscription = async (buffer) => {
   return transcript.trim();
 };
 
-const runTranscription = (buffer) => {
+const runLocalQueuedTranscription = (buffer) => queueLocalTask(() => runLocalTranscription(buffer));
+
+const runPreferredTranscription = async (buffer) => {
   if (ACTIVE_PROVIDER === 'huggingface') {
     if (!HF_API_TOKEN) {
       const error = new Error('Server misconfigured: missing HF_API_TOKEN.');
       error.status = 500;
       throw error;
     }
-    return runHuggingFaceTranscription(buffer);
+
+    try {
+      const transcript = await runHuggingFaceTranscription(buffer);
+      return { text: transcript, provider: 'huggingface', fallback: false };
+    } catch (error) {
+      if (!shouldFallbackToLocal(error)) {
+        throw error;
+      }
+
+      // eslint-disable-next-line no-console
+      console.warn('Hugging Face transcription failed. Falling back to local model.', error);
+
+      try {
+        const transcript = await runLocalQueuedTranscription(buffer);
+        return {
+          text: transcript,
+          provider: 'local',
+          fallback: true,
+          reason: normaliseErrorMessage(error),
+        };
+      } catch (localError) {
+        const combinedError = new Error('Both Hugging Face and local transcription failed.');
+        combinedError.status = localError.status || error.status || 500;
+        combinedError.details = {
+          remote: normaliseErrorMessage(error),
+          local: normaliseErrorMessage(localError),
+        };
+        combinedError.cause = { remote: error, local: localError };
+        throw combinedError;
+      }
+    }
   }
 
-  return queueLocalTask(() => runLocalTranscription(buffer));
+  const transcript = await runLocalQueuedTranscription(buffer);
+  return { text: transcript, provider: 'local', fallback: false };
 };
 
 const runLocalLiveTranscription = async (sessionId, buffer, isFinalChunk) => {
@@ -137,7 +243,7 @@ const runLocalLiveTranscription = async (sessionId, buffer, isFinalChunk) => {
   session.chunks.push(buffer);
 
   const combined = Buffer.concat(session.chunks);
-  const fullTranscript = await runTranscription(combined);
+  const fullTranscript = await runLocalQueuedTranscription(combined);
 
   let delta = fullTranscript;
   if (session.lastText) {
@@ -161,6 +267,33 @@ const runLocalLiveTranscription = async (sessionId, buffer, isFinalChunk) => {
   }
 
   return delta.trim();
+};
+
+const runPreferredLiveTranscription = async (sessionId, buffer, isFinalChunk) => {
+  if (ACTIVE_PROVIDER === 'huggingface') {
+    try {
+      const transcript = await runHuggingFaceTranscription(buffer);
+      return { text: transcript, provider: 'huggingface', fallback: false };
+    } catch (error) {
+      if (!shouldFallbackToLocal(error)) {
+        throw error;
+      }
+
+      // eslint-disable-next-line no-console
+      console.warn('Falling back to local live transcription after Hugging Face error.', error);
+
+      const transcript = await runLocalLiveTranscription(sessionId, buffer, isFinalChunk);
+      return {
+        text: transcript,
+        provider: 'local',
+        fallback: true,
+        reason: normaliseErrorMessage(error),
+      };
+    }
+  }
+
+  const transcript = await runLocalLiveTranscription(sessionId, buffer, isFinalChunk);
+  return { text: transcript, provider: 'local', fallback: false };
 };
 
 app.use((req, res, next) => {
@@ -201,8 +334,8 @@ app.post('/api/transcribe', upload.single('audio'), async (req, res) => {
   }
 
   try {
-    const transcript = await runTranscription(req.file.buffer);
-    res.json({ text: transcript });
+    const result = await runPreferredTranscription(req.file.buffer);
+    res.json(result);
   } catch (error) {
     const status = error.status || 500;
     if (status !== 500) {
@@ -224,16 +357,10 @@ app.post('/api/transcribe/live', upload.single('audio'), async (req, res) => {
 
   try {
     const isFinalChunk = req.body?.isFinal === 'true';
+    const sessionId = req.body?.sessionId || 'default-live-session';
 
-    if (ACTIVE_PROVIDER === 'local') {
-      const sessionId = req.body?.sessionId || 'default-live-session';
-      const transcript = await runLocalLiveTranscription(sessionId, req.file.buffer, isFinalChunk);
-      res.json({ text: transcript });
-      return;
-    }
-
-    const transcript = await runTranscription(req.file.buffer);
-    res.json({ text: transcript });
+    const result = await runPreferredLiveTranscription(sessionId, req.file.buffer, isFinalChunk);
+    res.json(result);
   } catch (error) {
     const status = error.status || 500;
     if (status !== 500) {

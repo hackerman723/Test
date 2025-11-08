@@ -9,10 +9,11 @@
   <body>
     <div class="hero">
       <div class="hero__content">
-        <h1>Orion Speech Studio</h1>
+        <h1>Orion Translation Studio</h1>
         <p>
-          Deliver live, technical-ready transcripts in your browser. Toggle between US and Indian
-          English accents and surface IT terminology instantly while you speak.
+          Stream live speech-to-text translations tuned for American and Indian English. The
+          oversized translation canvas keeps cloud, DevOps, and IT vocabulary front and center while
+          you speak.
         </p>
         <div class="hero__cta">
           <button id="start" class="btn btn--primary">
@@ -29,7 +30,10 @@
           </label>
           <input type="file" id="upload" accept="audio/*" hidden />
         </div>
-        <p class="hero__hint">Audio streams securely while recording and stops the moment you finish.</p>
+        <p class="hero__hint">
+          Audio streams securely while recording and translation updates automatically in the main
+          pane.
+        </p>
       </div>
       <div class="hero__visual" aria-hidden="true">
         <div class="pulse"></div>
@@ -40,9 +44,12 @@
 
     <main class="layout">
       <section class="panel panel--transcript">
+        <div class="panel__tab" role="presentation">
+          <span class="panel__tab-label">Translation stream</span>
+        </div>
         <header class="panel__header">
           <div class="panel__title">
-            <h2>Live transcript</h2>
+            <h2>Live translation</h2>
             <span id="provider" class="provider" aria-live="polite">Detecting transcriber…</span>
           </div>
           <span id="status" class="status" role="status" aria-live="polite"></span>
@@ -52,13 +59,13 @@
           id="transcript"
           class="transcript"
           aria-live="polite"
-          aria-label="Transcript output"
+          aria-label="Translation output"
         ></article>
 
         <footer class="panel__footer">
           <p>
-            Highlighted keywords help you review cloud, DevOps, and IT phrases immediately. Copy or
-            clear the transcript at any time.
+            Highlighted keywords help you review cloud, DevOps, and IT phrases instantly. Copy or
+            clear the translation whenever you need to capture meeting notes.
           </p>
         </footer>
       </section>
@@ -66,7 +73,7 @@
       <section class="panel panel--controls">
         <header>
           <h2>Session controls</h2>
-          <p>Fine-tune recognition for different accents and capture styles.</p>
+          <p>Fine-tune recognition for different accents and translation styles.</p>
         </header>
 
         <div class="form-grid">
@@ -94,7 +101,7 @@
 
           <label class="toggle">
             <input type="checkbox" id="append-mode" checked />
-            <span class="toggle__text">Append to transcript</span>
+            <span class="toggle__text">Append to translation</span>
           </label>
         </div>
 
@@ -107,8 +114,8 @@
         </div>
 
         <div class="inline-actions">
-          <button id="clear" class="btn btn--ghost">Clear transcript</button>
-          <button id="copy" class="btn btn--surface">Copy text</button>
+          <button id="clear" class="btn btn--ghost">Clear translation</button>
+          <button id="copy" class="btn btn--surface">Copy translation</button>
         </div>
       </section>
 
@@ -125,7 +132,7 @@
     </main>
 
     <footer class="page-footer">
-      <small>Built with open-source transcription models and thoughtful UX flourishes.</small>
+      <small>Built with open-source translation models and thoughtful UX flourishes.</small>
     </footer>
 
     <script src="app.js" type="module"></script>

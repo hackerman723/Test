@@ -90,7 +90,11 @@ const state = {
   liveBuffer: '',
   chunkQueue: Promise.resolve(),
   awaitingFinalChunk: false,
-  provider: 'unknown',
+  preferredProvider: 'unknown',
+  activeProvider: 'unknown',
+  fallbackActive: false,
+  fallbackReason: '',
+  localModelId: '',
 };
 
 const setStatus = (message, tone = 'info') => {
@@ -104,6 +108,58 @@ const setRecordingUi = (isRecording) => {
   stopButton.disabled = !isRecording;
   meterEl.dataset.active = String(isRecording);
 };
+
+const getProviderLabel = (provider) => {
+  switch (provider) {
+    case 'huggingface':
+      return 'Hugging Face Whisper GPT';
+    case 'local':
+      return state.localModelId
+        ? `Local Whisper (${state.localModelId})`
+        : 'Local Whisper (Transformers.js)';
+    default:
+      return 'Transcriber not initialised';
+  }
+};
+
+const updateProviderDisplay = (provider, { fallback = false, reason = '' } = {}) => {
+  if (!providerEl) return;
+
+  const resolvedProvider = provider || 'unknown';
+  const label = getProviderLabel(resolvedProvider);
+  const suffix = fallback ? ' · fallback active' : '';
+
+  providerEl.textContent = `${label}${suffix}`;
+  providerEl.dataset.provider = resolvedProvider;
+  providerEl.dataset.fallback = String(Boolean(fallback));
+
+  if (reason && fallback) {
+    providerEl.title = `Fallback reason: ${reason}`;
+  } else {
+    providerEl.removeAttribute('title');
+  }
+};
+
+const syncActiveProvider = (provider, { fallback = false, reason = '' } = {}) => {
+  state.activeProvider = provider || 'unknown';
+  state.fallbackActive = Boolean(fallback);
+  state.fallbackReason = fallback ? reason || '' : '';
+  updateProviderDisplay(state.activeProvider, { fallback: state.fallbackActive, reason: state.fallbackReason });
+};
+
+const getLiveStatusMessage = (isFinal, fallback) => {
+  if (isFinal) {
+    return fallback ? 'Live translation complete ✓ (local fallback active)' : 'Live translation complete ✓';
+  }
+  return fallback
+    ? 'Translating live audio with local Whisper fallback…'
+    : 'Listening and translating in real time…';
+};
+
+const getBatchStatusMessage = (fallback) =>
+  fallback
+    ? 'Translation complete ✓ (local fallback active)'
+    : 'Translation complete ✓';
 
 const getAccentLabel = () => {
   const option = languageEl.options[languageEl.selectedIndex];
@@ -202,7 +258,9 @@ const handleLiveChunk = async (blob, { isFinal = false } = {}) => {
   }
 
   ensureLiveSegment();
-  setStatus(isFinal ? 'Finalising live transcription…' : 'Transcribing live audio…');
+  setStatus(
+    isFinal ? 'Finalising live translation…' : getLiveStatusMessage(false, state.fallbackActive),
+  );
 
   const formData = new FormData();
   const fileExtension = blob.type.split('/')[1] || 'webm';
@@ -225,14 +283,28 @@ const handleLiveChunk = async (blob, { isFinal = false } = {}) => {
     }
 
     const payload = await response.json();
+    const providerUsed = payload.provider || state.activeProvider;
+    const fallback = Boolean(payload.fallback);
+    const reason = payload.reason || '';
+    const wasFallbackActive = state.fallbackActive;
+
+    syncActiveProvider(providerUsed, { fallback, reason });
+
     const text = (payload.text || '').trim();
 
     if (text) {
       appendLiveText(text);
-      setStatus(
-        isFinal ? 'Live transcription complete ✓' : 'Listening for more speech…',
-        isFinal ? 'success' : 'info',
-      );
+
+      let tone = isFinal ? 'success' : 'info';
+      let message = getLiveStatusMessage(isFinal, state.fallbackActive);
+
+      if (fallback && !wasFallbackActive && !isFinal) {
+        const reasonSuffix = state.fallbackReason ? ` (${state.fallbackReason})` : '';
+        tone = 'warn';
+        message = `Cloud translation unavailable${reasonSuffix}. Using local Whisper fallback automatically.`;
+      }
+
+      setStatus(message, tone);
     } else if (isFinal && !state.liveBuffer) {
       setStatus('No speech detected in that recording.', 'warn');
       if (state.liveSegment) {
@@ -242,11 +314,11 @@ const handleLiveChunk = async (blob, { isFinal = false } = {}) => {
       state.liveBuffer = '';
       state.liveSessionId = null;
     } else if (isFinal) {
-      setStatus('Live transcription complete ✓', 'success');
+      setStatus(getLiveStatusMessage(true, state.fallbackActive), 'success');
     }
   } catch (error) {
-    console.error('Live transcription error', error);
-    setStatus(error.message || 'Live transcription failed. Check server logs.', 'error');
+    console.error('Live translation error', error);
+    setStatus(error.message || 'Live translation failed. Check server logs.', 'error');
   } finally {
     if (isFinal) {
       finaliseLiveSegment();
@@ -264,7 +336,7 @@ const transcribeBlob = async (blob, sourceLabel) => {
     return;
   }
 
-  setStatus('Uploading audio to Whisper GPT…');
+  setStatus('Uploading audio for translation…');
 
   const formData = new FormData();
   const fileExtension = blob.type.split('/')[1] || 'webm';
@@ -285,6 +357,13 @@ const transcribeBlob = async (blob, sourceLabel) => {
     }
 
     const payload = await response.json();
+    const providerUsed = payload.provider || state.activeProvider;
+    const fallback = Boolean(payload.fallback);
+    const reason = payload.reason || '';
+    const wasFallbackActive = state.fallbackActive;
+
+    syncActiveProvider(providerUsed, { fallback, reason });
+
     const formatted = formatTranscript(payload.text || '');
 
     if (!formatted) {
@@ -294,10 +373,15 @@ const transcribeBlob = async (blob, sourceLabel) => {
 
     const accentLabel = getAccentLabel();
     renderSegment(formatted, `${sourceLabel} · ${accentLabel}`);
-    setStatus('Transcription complete ✓', 'success');
+    const justActivatedFallback = state.fallbackActive && !wasFallbackActive;
+    const statusTone = justActivatedFallback ? 'warn' : 'success';
+    const statusMessage = justActivatedFallback
+      ? `Cloud translation unavailable${state.fallbackReason ? ` (${state.fallbackReason})` : ''}. Using local Whisper fallback automatically.`
+      : getBatchStatusMessage(state.fallbackActive);
+    setStatus(statusMessage, statusTone);
   } catch (error) {
-    console.error('Transcription error', error);
-    setStatus(error.message || 'Transcription failed. Check server logs.', 'error');
+    console.error('Translation error', error);
+    setStatus(error.message || 'Translation failed. Check server logs.', 'error');
   }
 };
 
@@ -334,6 +418,12 @@ const startRecording = async () => {
     state.liveSegment = null;
     state.awaitingFinalChunk = false;
 
+    if (state.preferredProvider !== 'unknown') {
+      syncActiveProvider(state.preferredProvider, { fallback: false });
+    } else if (state.activeProvider !== 'unknown') {
+      syncActiveProvider(state.activeProvider, { fallback: false });
+    }
+
     mediaRecorder.addEventListener('dataavailable', (event) => {
       if (event.data.size > 0) {
         const isFinalChunk = state.awaitingFinalChunk || mediaRecorder.state === 'inactive';
@@ -344,7 +434,7 @@ const startRecording = async () => {
 
     mediaRecorder.addEventListener('start', () => {
       setRecordingUi(true);
-      setStatus('Recording… technical terms will be highlighted automatically.');
+      setStatus('Recording… your live translation will appear automatically with highlighted technical terms.');
     });
 
     mediaRecorder.addEventListener('stop', async () => {
@@ -357,7 +447,7 @@ const startRecording = async () => {
       state.mediaRecorder = null;
     });
 
-    mediaRecorder.start(1500);
+    mediaRecorder.start(1000);
     state.mediaRecorder = mediaRecorder;
   } catch (error) {
     console.error('Unable to access microphone', error);
@@ -369,7 +459,7 @@ const startRecording = async () => {
 const stopRecording = () => {
   if (!state.mediaRecorder) return;
   if (state.mediaRecorder.state === 'inactive') return;
-  setStatus('Finalising recording…');
+  setStatus('Finalising translation…');
   state.awaitingFinalChunk = true;
   state.mediaRecorder.stop();
 };
@@ -379,19 +469,19 @@ stopButton.addEventListener('click', stopRecording);
 
 clearButton.addEventListener('click', () => {
   transcriptEl.replaceChildren();
-  setStatus('Transcript cleared.');
+  setStatus('Translation cleared.');
 });
 
 copyButton.addEventListener('click', async () => {
   const text = readTranscriptText();
   if (!text) {
-    setStatus('Nothing to copy yet.', 'warn');
+    setStatus('No translation to copy yet.', 'warn');
     return;
   }
 
   try {
     await navigator.clipboard.writeText(text);
-    setStatus('Transcript copied to clipboard.', 'success');
+    setStatus('Translation copied to clipboard.', 'success');
   } catch (error) {
     console.error('Clipboard error', error);
     setStatus('Clipboard copy failed. Try again.', 'error');
@@ -402,13 +492,13 @@ uploadInput.addEventListener('change', async (event) => {
   const file = event.target.files?.[0];
   if (!file) return;
 
-  setStatus(`Uploading ${file.name}…`);
+  setStatus(`Uploading ${file.name} for translation…`);
   await transcribeBlob(file, 'Upload');
   uploadInput.value = '';
 });
 
 const hydrateProviderDetails = async () => {
-  setStatus('Preparing transcription engine…');
+  setStatus('Preparing translation engine…');
 
   try {
     const response = await fetch('/api/status');
@@ -417,36 +507,32 @@ const hydrateProviderDetails = async () => {
     }
 
     const payload = await response.json();
-    state.provider = payload.provider || 'unknown';
+    state.preferredProvider = payload.provider || 'unknown';
+    state.localModelId = payload?.local?.modelId || '';
 
-    const providerLabel =
-      state.provider === 'huggingface'
-        ? 'Hugging Face Whisper GPT'
-        : `Local Whisper (${payload?.local?.modelId || 'Xenova/whisper-small.en'})`;
+    syncActiveProvider(state.preferredProvider, { fallback: false });
 
-    if (providerEl) {
-      providerEl.textContent = providerLabel;
-      providerEl.dataset.provider = state.provider;
-    }
-
-    if (state.provider === 'huggingface') {
-      setStatus('Ready to capture speech with low-latency Hugging Face inference.');
+    if (state.preferredProvider === 'huggingface') {
+      setStatus(
+        'Ready for live translation with low-latency Hugging Face inference. Local Whisper fallback will engage automatically if needed.',
+        'info',
+      );
+    } else if (state.preferredProvider === 'local') {
+      setStatus('Ready for live translation with the on-device Whisper model.', 'info');
     } else {
-      setStatus('Ready to capture speech with on-device Whisper transcription.');
+      setStatus('Ready to translate speech. Configure the server if you encounter issues.', 'warn');
     }
   } catch (error) {
     console.warn('Unable to determine provider', error);
-    state.provider = 'unknown';
-    if (providerEl) {
-      providerEl.textContent = 'Transcriber not initialised';
-      providerEl.dataset.provider = 'unknown';
-    }
-    setStatus('Ready to capture speech. Configure the server if you encounter issues.', 'warn');
+    state.preferredProvider = 'unknown';
+    state.localModelId = '';
+    syncActiveProvider('unknown');
+    setStatus('Ready to translate speech. Configure the server if you encounter issues.', 'warn');
   }
 };
 
 if (!window.MediaRecorder) {
-  setStatus('MediaRecorder is not supported. Use the upload button instead.', 'warn');
+  setStatus('MediaRecorder is not supported. Use the upload button to translate audio instead.', 'warn');
   startButton.disabled = true;
   stopButton.disabled = true;
 } else {
