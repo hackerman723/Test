@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Speech to Text</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="hero">
+      <div class="hero__content">
+        <h1>Orion Translation Studio</h1>
+        <p>
+          Stream live speech-to-text translations tuned for American and Indian English. The
+          oversized translation canvas keeps cloud, DevOps, and IT vocabulary front and center while
+          you speak.
+        </p>
+        <div class="hero__cta">
+          <button id="start" class="btn btn--primary">
+            <span class="btn__icon" aria-hidden="true">●</span>
+            Start recording
+          </button>
+          <button id="stop" class="btn btn--surface" disabled>
+            <span class="btn__icon" aria-hidden="true">■</span>
+            Stop live capture
+          </button>
+          <label for="upload" class="btn btn--ghost">
+            <span class="btn__icon" aria-hidden="true">⇪</span>
+            Upload audio
+          </label>
+          <input type="file" id="upload" accept="audio/*" hidden />
+        </div>
+        <p class="hero__hint">
+          Audio streams securely while recording and translation updates automatically in the main
+          pane.
+        </p>
+      </div>
+      <div class="hero__visual" aria-hidden="true">
+        <div class="pulse"></div>
+        <div class="pulse"></div>
+        <div class="pulse"></div>
+      </div>
+    </div>
+
+    <main class="layout">
+      <section class="panel panel--transcript">
+        <div class="panel__tab" role="presentation">
+          <span class="panel__tab-label">Translation stream</span>
+        </div>
+        <header class="panel__header">
+          <div class="panel__title">
+            <h2>Live translation</h2>
+            <span id="provider" class="provider" aria-live="polite">Detecting transcriber…</span>
+          </div>
+          <span id="status" class="status" role="status" aria-live="polite"></span>
+        </header>
+
+        <article
+          id="transcript"
+          class="transcript"
+          aria-live="polite"
+          aria-label="Translation output"
+        ></article>
+
+        <footer class="panel__footer">
+          <p>
+            Highlighted keywords help you review cloud, DevOps, and IT phrases instantly. Copy or
+            clear the translation whenever you need to capture meeting notes.
+          </p>
+        </footer>
+      </section>
+
+      <section class="panel panel--controls">
+        <header>
+          <h2>Session controls</h2>
+          <p>Fine-tune recognition for different accents and translation styles.</p>
+        </header>
+
+        <div class="form-grid">
+          <label class="input">
+            <span>Accent focus</span>
+            <select id="language">
+              <option value="en-US">English (United States)</option>
+              <option value="en-IN">English (India)</option>
+            </select>
+          </label>
+
+          <label class="input">
+            <span>Recording quality</span>
+            <select id="quality">
+              <option value="studio">Studio microphone</option>
+              <option value="meeting">Meeting room</option>
+              <option value="mobile">Mobile device</option>
+            </select>
+          </label>
+
+          <label class="toggle">
+            <input type="checkbox" id="auto-punctuate" checked />
+            <span class="toggle__text">Smart punctuation</span>
+          </label>
+
+          <label class="toggle">
+            <input type="checkbox" id="append-mode" checked />
+            <span class="toggle__text">Append to translation</span>
+          </label>
+        </div>
+
+        <div class="meter" id="record-visualizer" aria-hidden="true">
+          <span></span>
+          <span></span>
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+
+        <div class="inline-actions">
+          <button id="clear" class="btn btn--ghost">Clear translation</button>
+          <button id="copy" class="btn btn--surface">Copy translation</button>
+        </div>
+      </section>
+
+      <section class="panel panel--tips">
+        <header>
+          <h2>Capture tips</h2>
+        </header>
+        <ul>
+          <li>Speak clearly and pause briefly between sentences for best punctuation.</li>
+          <li>Switch the accent focus when transcribing American or Indian English speakers.</li>
+          <li>Use the upload option for pre-recorded meetings, podcasts, or voicemail audio.</li>
+        </ul>
+      </section>
+    </main>
+
+    <footer class="page-footer">
+      <small>Built with open-source translation models and thoughtful UX flourishes.</small>
+    </footer>
+
+    <script src="app.js" type="module"></script>
+  </body>
+</html>
